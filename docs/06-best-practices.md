@@ -12,9 +12,9 @@
 2. **Never touch the world from a reader or writer thread.** Futures complete on Histoblock's
    reader threads and events fire on its writer thread. Chat messages and logging are fine
    there; blocks, entities and inventories are not.
-3. **Call live lookups on the owning thread.** `placement` and `portalKey` on the block's
-   thread, `stackSources` and `timeInWorlds` on the player's. On Folia that is the region
-   thread, not the global one.
+3. **Call live lookups on the owning thread.** `placement`, `removedPlacement` and `portalKey`
+   on the block's thread, `killCredit` and `combat` on the entity's, `stackSources` and
+   `timeInWorlds` on the player's. On Folia that is the region thread, not the global one.
 4. **Never shade the API jar.** `provided` or `compileOnly`, always.
 5. **Never assume history exists.** Retention, purges, trackers switched off and worlds older
    than the install all leave gaps. Every view handles it with `isKnown()`, null records and
@@ -34,6 +34,14 @@ the running plugin implements.
 - If you support older Histoblock builds, check `api.apiVersion() >= 2` before calling a view
   or a live lookup, and before registering a listener for a typed event. On an older plugin a
   view method throws `AbstractMethodError`, and a typed event class does not exist at all.
+- The same goes for API 3 (Histoblock 1.1.0): check `api.apiVersion() >= 3` before calling
+  `killCredit`, `combat(LivingEntity)` or `removedPlacement`, and keep your old path for
+  servers that have not updated yet.
+
+| Plugin | `apiVersion()` | Added |
+| --- | --- | --- |
+| 0.7.0, 1.0.0 | 2 | views, live lookups, typed events |
+| 1.1.0 | 3 | `killCredit`, `combat(LivingEntity)`, `removedPlacement` |
 - `RecordAction` grows. A record written by a newer plugin and read through an older API jar
   comes back as `RecordAction.UNKNOWN`. Give every `switch` on it a `default` branch.
 - Detail keys grow too. Read the keys you know and ignore the rest; never fail on an
@@ -84,7 +92,7 @@ Lists inside a detail are comma separated, such as `SHARPNESS:3,UNBREAKING:2` or
 - [ ] `softdepend` or `depend` on `Histoblock` in `plugin.yml`
 - [ ] the API jar is `provided` or `compileOnly`
 - [ ] the API is resolved in `onEnable`, with `find()` if Histoblock is optional
-- [ ] `apiVersion()` is checked if you support Histoblock older than 0.7.0
+- [ ] `apiVersion()` is checked if you support Histoblock older than the API you compiled against
 - [ ] no `join()` or `get()` anywhere a server thread can reach
 - [ ] world changes after a lookup go through your scheduler, Folia's if you support it
 - [ ] listeners are thread-safe and short

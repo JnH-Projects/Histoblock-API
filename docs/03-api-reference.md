@@ -2,7 +2,8 @@
 
 [Index](README.md) | Previous: [Core concepts](02-core-concepts.md) | Next: [Events](04-events.md)
 
-Every public type, grouped by package. Methods marked **API 2** need Histoblock 0.7.0 or newer.
+Every public type, grouped by package. Methods marked **API 2** need Histoblock 0.7.0 or newer,
+and methods marked **API 3** need Histoblock 1.1.0 or newer.
 
 ---
 
@@ -25,7 +26,7 @@ plugin on the server.
 
 | Method | Returns | Notes |
 | --- | --- | --- |
-| `version()` | `String` | the plugin version without the edition suffix, e.g. `0.7.0` |
+| `version()` | `String` | the plugin version without the edition suffix, e.g. `1.1.0` |
 | `apiVersion()` | `int` | the contract the running plugin implements; compare with `HistoblockAPI.API_VERSION`, the one you compiled against |
 | `edition()` | `Edition` | `FREE` or `PRO` |
 | `capabilities()` | `Set<Capability>` | what is on right now, unmodifiable |
@@ -92,6 +93,45 @@ on the block's thread.
 
 `Map<String, Duration>`: an online player's time in each world, all time, including the stay
 they are in now. Most time first. Unmodifiable. Call on the player's thread.
+
+### `killCredit(LivingEntity)` (API 3)
+
+`Optional<Actor>`: who gets the kill if the entity dies now. The same answer Histoblock writes
+as the actor of the `ENTITY_DIED` record, worked out in this order:
+
+1. the vanilla killer (`getKiller()`);
+2. the entity behind the last damage cause: the shooter of an arrow, whoever lit the TNT, the
+   evoker behind the fangs, the thrower of a lingering potion;
+3. a block behind the last damage cause, such as a cactus or a magma block;
+4. the last entity or block in the combat ledger, if that hit landed within the last 5 seconds.
+   This is the step that credits a player who knocked a mob into lava or off a cliff.
+
+Empty when none of those apply; the record then says the world did it. The answer can be a mob
+or a block, so check `isPlayer()` before paying out a player kill.
+
+Meant for `EntityDeathEvent`. It answers on the spot, before the record exists, and gives the
+same answer at every listener priority, a player's death included. Call on the entity's thread.
+Step 4 needs entity tracking on; steps 1 to 3 work with it off.
+
+### `combat(LivingEntity)` (API 3)
+
+`CombatSummary`: the combat ledger of an entity that is still alive, read off the entity itself
+with no database read. For a player it covers the current life. `isComplete()` is true, since
+the ledger counts every hit and holds the same totals the death record will write. Empty for a
+farm mob nobody follows, since those hits are not kept; a player hitting a mob starts
+following it. For an entity that is gone, use [`entity(UUID)`](#entityuuid-api-2). Call on the
+entity's thread.
+
+### `removedPlacement(Block)` (API 3)
+
+`Optional<RemovedPlacement>`: the placed mark that was cleared at this block in the last
+`RemovedPlacement.KEPT_FOR_MINUTES` (10) minutes, because the block was broken, burned, blown
+up, washed away or scooped with a bucket. Empty when nothing placed was removed there lately.
+See [`RemovedPlacement`](#removedplacement).
+
+`placement(Block)` is empty once the block is gone, so this is the way to tell a player who
+breaks their own block and places it again, over and over, from one who places a new block.
+Call on the block's thread.
 
 ---
 
@@ -228,6 +268,9 @@ respawned has `ended()` null and an empty combat summary until they are hurt aga
   hits get a record is the server owner's choice (by default only hits on players), so the
   numbers can be short.
 
+For the full totals of an entity that is still alive and online, use
+[`combat(LivingEntity)`](#combatlivingentity-api-3) (API 3), which is always complete.
+
 ### `PlayerView`
 
 Everything in `EntityView`, plus:
@@ -270,6 +313,20 @@ Time per world is kept on the player, not in records: see
 From `placement(Block)`: `placer()` (null when a block or the world placed it), `placerName()`,
 `material()` (what it was placed as, which can differ from what stands there now, such as a
 sapling that grew), `time()`.
+
+### `RemovedPlacement`
+
+**API 3.** From `removedPlacement(Block)`.
+
+| Method | Returns | Notes |
+| --- | --- | --- |
+| `placement()` | `Placement` | the mark as it was right before it was cleared: who placed what, and when |
+| `removedAt()` | `Instant` | when the mark was cleared |
+
+The notes are kept in memory only, so a restart forgets them, and there are at most 20,000 on
+the whole server at once. A block moved by a piston or by gravity keeps its mark and leaves no
+note. A new block placed on the same spot does not clear the note, so a place, break, place
+loop still shows the first removal.
 
 ---
 

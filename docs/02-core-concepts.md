@@ -68,15 +68,16 @@ stairs back to planks, logs, and the tree they were cut from.
 | --- | --- | --- | --- |
 | **Queries**: `records`, `count` | a list of records | completes on a reader thread | lists and timelines across many subjects |
 | **Views**: `block`, `entity`, `player`, `item`, `portal` | one view of one subject | completes on a reader thread | everything about one thing, already worked out |
-| **Live lookups**: `itemId`, `stackSources`, `placement`, `portalKey`, `timeInWorlds` | a value | runs on your thread | state Histoblock keeps on the item, chunk or player, not in records |
+| **Live lookups**: `itemId`, `stackSources`, `placement`, `portalKey`, `timeInWorlds`, and in API 3 `killCredit`, `combat(LivingEntity)`, `removedPlacement` | a value | runs on your thread | state Histoblock keeps on the item, chunk, entity or player, not in records |
 
 A view is a handful of indexed queries on one key, run in one go. It costs about what an
 in-game inspect costs, and it does the folding for you: the placement that is still standing,
 the combat summary of the newest life, the footstep totals.
 
 Live lookups read what is not in the database. Placed marks and portal notes are kept in the
-chunk, item ids on the item, ledgers and world times on the player. They are not subject to
-the retention and they never age out.
+chunk, item ids on the item, ledgers and world times on the player, the combat ledger on the
+entity. They are not subject to the retention and they never age out. The one exception is
+`removedPlacement`: those notes are kept in memory for 10 minutes and do not survive a restart.
 
 ---
 
@@ -118,7 +119,8 @@ to be:
 | Lookup | Call on |
 | --- | --- |
 | `itemId(ItemStack)` | any thread; it only reads the stack you pass |
-| `placement(Block)`, `portalKey(Block)` | the block's thread: the main thread, or its region thread on Folia |
+| `placement(Block)`, `removedPlacement(Block)`, `portalKey(Block)` | the block's thread: the main thread, or its region thread on Folia |
+| `killCredit(LivingEntity)`, `combat(LivingEntity)` | the entity's thread: the main thread, or its region thread on Folia |
 | `stackSources(Player, ItemStack)`, `timeInWorlds(Player)` | the player's thread: the main thread, or their region thread on Folia |
 
 A command handler or an event listener for that block or player is already on the right

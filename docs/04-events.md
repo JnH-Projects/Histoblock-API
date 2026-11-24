@@ -102,6 +102,26 @@ A player's damage and death are entity records, so they come here rather than to
 `PlayerRecordedEvent`. Which hits get an `ENTITY_DAMAGED` record is the server owner's choice;
 death and despawn records always carry the full combat summary.
 
+Not every death fires this event. An `ENTITY_DIED` record, and so the event, comes only for a
+player, a mob a player hit or killed, and a mob that is followed, named, tamed or an Epic Mob.
+See [Which deaths get a record](05-records.md#which-deaths-get-a-record). A death that never
+shows up here had nobody to credit.
+
+The event fires on the writer thread a moment after the death. To pay out a kill on the spot,
+call [`killCredit(LivingEntity)`](03-api-reference.md#killcreditlivingentity-api-3) (API 3)
+from your own `EntityDeathEvent` listener instead of matching deaths to records later:
+
+```java
+@EventHandler
+public void onDeath(EntityDeathEvent event) {
+    if (event.getEntity().getKiller() != null) return; // vanilla already credits this one
+    api.killCredit(event.getEntity())
+       .filter(Actor::isPlayer)
+       .map(actor -> Bukkit.getPlayer(actor.uuid()))
+       .ifPresent(player -> reward(player, event.getEntity()));
+}
+```
+
 ---
 
 ## `PlayerRecordedEvent`
