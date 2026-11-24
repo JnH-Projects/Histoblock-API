@@ -21,7 +21,7 @@ HistoblockProvider.find().ifPresent(api ->
 | --- | --- |
 | **Records** | every recorded action, filtered by category, action, subject, actor, world, area and time, newest or oldest first |
 | **Views** | everything about one block, mob, player, item or portal in one call: who placed it, who hurt it, where it came from, who lit it |
-| **Live lookups** | an item's hidden id, where a stack came from, the placed mark of a block, the portal a block belongs to, a player's time per world |
+| **Live lookups** | an item's hidden id, where a stack came from, the placed mark of a block, the portal a block belongs to, a player's time per world, and since 1.1.0 who gets a kill, a living mob's combat ledger and placed blocks removed lately |
 | **Events** | `HistoryRecordedEvent` for every record, plus one typed event per category |
 
 Everything lives under `me.jaymar921.histoblock.api`. Nothing in it names a class outside it
@@ -41,7 +41,7 @@ The API is read only. It never changes the world, and it never writes or deletes
 
 ## Examples
 
-Six compilable plugins in [`examples/`](examples/), smallest first:
+Eight compilable plugins in [`examples/`](examples/), smallest first:
 
 | Example | Shows |
 | --- | --- |
@@ -51,6 +51,8 @@ Six compilable plugins in [`examples/`](examples/), smallest first:
 | [DeathReportPlugin](examples/src/main/java/com/example/histoblock/DeathReportPlugin.java) | a report on every player death from the combat summary |
 | [PortalLogPlugin](examples/src/main/java/com/example/histoblock/PortalLogPlugin.java) | `/portalinfo` and a live trip counter |
 | [PlayerHistoryPlugin](examples/src/main/java/com/example/histoblock/PlayerHistoryPlugin.java) | `/history`: a view, a timeline query, time per world |
+| [KillCreditPlugin](examples/src/main/java/com/example/histoblock/KillCreditPlugin.java) | crediting kills vanilla gives to nobody, inside the death event |
+| [PlaceCounterPlugin](examples/src/main/java/com/example/histoblock/PlaceCounterPlugin.java) | a place and mine quest that cannot be farmed |
 
 See [examples/README.md](examples/README.md) for how to build them.
 
@@ -58,6 +60,8 @@ See [examples/README.md](examples/README.md) for how to build them.
 
 | Plugin | `apiVersion()` | Artifact |
 | --- | --- | --- |
+| 1.1.0 | 3 | [`Histoblock-api.jar`](releases/1.1.0/Histoblock-api.jar) |
+| 1.0.0 | 2 | [`Histoblock-api.jar`](releases/1.0.0/Histoblock-api.jar) |
 | 0.7.0 | 2 | [`Histoblock-api.jar`](releases/0.7.0/Histoblock-api.jar) |
 
 `apiVersion()` goes up when a method, view or event is added. Code written for an older
@@ -69,7 +73,7 @@ number keeps working on a newer plugin. See [Versioning](docs/06-best-practices.
 | --- | --- |
 | Java | 16 or newer |
 | Server | Spigot, Paper or Folia, 1.16.5 or newer |
-| Runtime | Histoblock 0.7.0 or newer installed on the server |
+| Runtime | Histoblock 0.7.0 or newer installed on the server; 1.1.0 or newer for API 3 |
 
 ## License
 
