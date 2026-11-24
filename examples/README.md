@@ -1,6 +1,6 @@
 # Examples
 
-Six complete plugins, smallest first. Every one compiles against the API jar in
+Eight complete plugins, smallest first. Every one compiles against the API jar in
 [`releases/`](../releases/), and each is commented with the reasoning, not only the mechanics.
 
 They are meant to be **read in order and then copied**. Each file's javadoc header carries the
@@ -14,6 +14,8 @@ They are meant to be **read in order and then copied**. Each file's javadoc head
 | 4 | [DeathReportPlugin](src/main/java/com/example/histoblock/DeathReportPlugin.java) | `EntityRecordedEvent`, `player(UUID)`, `CombatSummary` | writer thread, reader thread |
 | 5 | [PortalLogPlugin](src/main/java/com/example/histoblock/PortalLogPlugin.java) | `DimensionRecordedEvent`, `portalKey`, `portal(key)` | all three |
 | 6 | [PlayerHistoryPlugin](src/main/java/com/example/histoblock/PlayerHistoryPlugin.java) | `timeInWorlds`, `player(UUID)`, `records(RecordQuery)` | player thread, reader thread |
+| 7 | [KillCreditPlugin](src/main/java/com/example/histoblock/KillCreditPlugin.java) | `killCredit`, `combat(LivingEntity)` (API 3) | entity thread only |
+| 8 | [PlaceCounterPlugin](src/main/java/com/example/histoblock/PlaceCounterPlugin.java) | `placement(Block)`, `removedPlacement(Block)` (API 3) | block thread only |
 
 ---
 
@@ -53,6 +55,20 @@ players changing worlds.
 `/history <player> [hours]`. A view for the summary, a `RecordQuery` with `oldestFirst()` for
 the timeline, and the live time per world for a player who is online.
 
+### 7. KillCreditPlugin
+
+Credits the player behind a kill vanilla gives to nobody, such as a zombie knocked into lava.
+Everything happens inside `EntityDeathEvent` with no future: `killCredit` gives the actor the
+death record will name, and `combat(LivingEntity)` the whole fight, killing blow included.
+Shows the `apiVersion() >= 3` check for a plugin that should still load on an older Histoblock.
+
+### 8. PlaceCounterPlugin
+
+A place and mine quest that cannot be farmed. Mining skips player placed blocks through the
+placed mark, read at `HIGHEST` before Histoblock clears it. Placing skips a spot where the same
+player's own block was taken away in the last 10 minutes, which `placement` alone cannot see
+once the block is gone.
+
 ---
 
 ## Build them
@@ -62,7 +78,7 @@ cd examples
 mvn package
 ```
 
-Java 16 or newer, Maven 3.8 or newer. The API comes from `../releases/0.7.0/` with system
+Java 16 or newer, Maven 3.8 or newer. The API comes from `../releases/1.1.0/` with system
 scope, so there is no install step. The resulting jar holds every example at once and has no
 `plugin.yml`: it proves they compile and is not meant to be dropped on a server. To run one,
 copy its class into your own plugin together with the `plugin.yml` from its header.
