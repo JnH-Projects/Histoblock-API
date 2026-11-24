@@ -44,6 +44,23 @@ Who placed a block is kept inside the chunk, not in the database, so it survives
 retention purge. `natural: true` on a block in a chunk built before Histoblock was
 installed only means Histoblock never saw it placed.
 
+Since 1.1.0, when a placed block goes away Histoblock also keeps a short note in memory for 10
+minutes: who had placed it and when it was removed. Read it with
+[`removedPlacement(Block)`](03-api-reference.md#removedplacementblock-api-3). A piston push or
+falling sand moves the mark and leaves no note. The notes do not survive a restart.
+
+### Block state
+
+Since 1.0.0, `BLOCK_PLACED`, `BLOCK_BROKEN`, `BLOCK_BURNED`, `BLOCK_EXPLODED`, `BLOCK_MOVED`,
+`BLOCK_GREW` and `BLOCK_FADED` carry a `state` detail with the block's properties, such as
+`facing=east,half=bottom,shape=straight,waterlogged=false` for a stair. It is the state the
+block had when it was placed, and the state it had just before it was broken, burned, blown up
+or faded. Blocks with no properties, such as stone, have no `state`, so they cost nothing extra.
+
+The value is Bukkit's block data string without the material, so you can rebuild the block
+with `Bukkit.createBlockData(material, "[" + state + "]")`. Records written by 0.7.0 have no
+`state`.
+
 ### Actions
 
 | Action | Actor | Details |
@@ -91,6 +108,19 @@ A mob is followed once something makes it worth following:
 Following is a mark in the mob's own persistent data, so it survives chunk unloads and
 restarts. Only followed mobs get an `ENTITY_DESPAWNED` record. A mob that spawned naturally
 and was never touched leaves no history, which is what keeps mob farms out of the database.
+
+### Which deaths get a record
+
+An `ENTITY_DIED` record is written for:
+
+- every player;
+- a mob a player killed or hit, since a hit starts following it;
+- a mob that is followed, named, tamed, or an Epic Mob.
+
+A farm mob that dies on its own, with no player near it, leaves nothing. So for a plugin paying
+out kills, a death with no `ENTITY_DIED` record had nobody to credit. You do not have to wait
+for the record to find out: [`killCredit(LivingEntity)`](03-api-reference.md#killcreditlivingentity-api-3)
+(API 3) gives the same actor inside the `EntityDeathEvent`.
 
 ### Actions
 
