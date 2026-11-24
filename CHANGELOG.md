@@ -2,6 +2,33 @@
 
 Changes to the API only. The plugin's own changelog is on its download page.
 
+## 1.1.0 (API 3)
+
+Three live lookups, asked for by Custom Enchantments 3. Each answers on the entity's or
+block's own thread, straight away, with no database read. Code written for API 2 keeps working.
+
+- `killCredit(LivingEntity)` returns the `Actor` an `ENTITY_DIED` record would name: the
+  vanilla killer, the entity behind the last damage cause, a block, or the last hitter in the
+  combat ledger within 5 seconds. Meant for `EntityDeathEvent`, and the same at every listener
+  priority, a player's death included.
+- `combat(LivingEntity)` returns the `CombatSummary` of an entity that is still alive, read off
+  the entity itself. Always complete.
+- `removedPlacement(Block)` returns a `RemovedPlacement` when a player placed block was taken
+  away from that spot in the last 10 minutes: the old `Placement` and `removedAt()`. Memory
+  only. Pistons and falling blocks leave no note.
+- `HistoblockAPI.API_VERSION` is 3.
+- `CombatSummary` docs list the live ledger as a third, complete source.
+
+Docs: [Which deaths get a record](docs/05-records.md#which-deaths-get-a-record) spells out
+that `ENTITY_DIED` is only written for players and for mobs a player hit or that are
+followed, named, tamed or Epic. Two new examples, `KillCreditPlugin` and `PlaceCounterPlugin`.
+
+## 1.0.0 (API 2)
+
+No API change: the 1.0.0 jar is the 0.7.0 contract with the new version number. Records gained
+one detail: block records carry `state`, the block's properties such as
+`facing=east,half=bottom`. See [Block state](docs/05-records.md#block-state).
+
 ## 0.7.0 (API 2)
 
 The first public release of the API. Earlier plugin builds shipped API 1 privately: the
