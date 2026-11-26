@@ -1,6 +1,6 @@
 # Examples
 
-Eight complete plugins, smallest first. Every one compiles against the API jar in
+Ten complete plugins, smallest first. Every one compiles against the API jar in
 [`releases/`](../releases/), and each is commented with the reasoning, not only the mechanics.
 
 They are meant to be **read in order and then copied**. Each file's javadoc header carries the
@@ -16,6 +16,8 @@ They are meant to be **read in order and then copied**. Each file's javadoc head
 | 6 | [PlayerHistoryPlugin](src/main/java/com/example/histoblock/PlayerHistoryPlugin.java) | `timeInWorlds`, `player(UUID)`, `records(RecordQuery)` | player thread, reader thread |
 | 7 | [KillCreditPlugin](src/main/java/com/example/histoblock/KillCreditPlugin.java) | `killCredit`, `combat(LivingEntity)` (API 3) | entity thread only |
 | 8 | [PlaceCounterPlugin](src/main/java/com/example/histoblock/PlaceCounterPlugin.java) | `placement(Block)`, `removedPlacement(Block)` (API 3) | block thread only |
+| 9 | [ArenaResetPlugin](src/main/java/com/example/histoblock/ArenaResetPlugin.java) | `blocksRestored` (API 4) | the arena's thread only |
+| 10 | [CrowdSaverPlugin](src/main/java/com/example/histoblock/CrowdSaverPlugin.java) | `saveSpeed`, `setSaveSpeed`, `SaveSpeed.parse` (API 4) | any thread |
 
 ---
 
@@ -69,6 +71,21 @@ placed mark, read at `HIGHEST` before Histoblock clears it. Placing skips a spot
 player's own block was taken away in the last 10 minutes, which `placement` alone cannot see
 once the block is gone.
 
+### 9. ArenaResetPlugin
+
+`/arena pos1`, `pos2`, `save`, `reset`. An arena that puts its blocks back with
+`setBlockData`, which no plugin can see, and then calls `blocksRestored` once so Histoblock
+marks the whole arena as the plugin's instead of keeping the match's player marks. Shows the
+soft dependency done right: the arena works without Histoblock, and the API 4 call sits in its
+own method behind `apiVersion() >= 4`.
+
+### 10. CrowdSaverPlugin
+
+Slows Histoblock's saving down while the server is crowded and puts the owner's speed back
+when it empties. Reads the speed and `tallyDelay()`, changes it only when the player count
+crosses the line, stops asking once the owner refused, reads its own config with
+`SaveSpeed.parse`, and restores the old speed on disable.
+
 ---
 
 ## Build them
@@ -78,7 +95,7 @@ cd examples
 mvn package
 ```
 
-Java 16 or newer, Maven 3.8 or newer. The API comes from `../releases/1.1.0/` with system
+Java 16 or newer, Maven 3.8 or newer. The API comes from `../releases/1.2.0/` with system
 scope, so there is no install step. The resulting jar holds every example at once and has no
 `plugin.yml`: it proves they compile and is not meant to be dropped on a server. To run one,
 copy its class into your own plugin together with the `plugin.yml` from its header.

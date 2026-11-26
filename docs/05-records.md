@@ -49,6 +49,10 @@ minutes: who had placed it and when it was removed. Read it with
 [`removedPlacement(Block)`](03-api-reference.md#removedplacementblock-api-3). A piston push or
 falling sand moves the mark and leaves no note. The notes do not survive a restart.
 
+Since 1.2.0 a mark can belong to a plugin that called
+[`blocksRestored`](03-api-reference.md#blocksrestoredplugin-world-boundingbox-map-api-4). Such a
+block reads `natural: false` with `placed_by` the plugin's name and no `placed_by_uuid`.
+
 ### Block state
 
 Since 1.0.0, `BLOCK_PLACED`, `BLOCK_BROKEN`, `BLOCK_BURNED`, `BLOCK_EXPLODED`, `BLOCK_MOVED`,
@@ -157,7 +161,7 @@ Death and despawn records write the totals:
 | `damage_taken` | Damage that reached health. `/kill` and the void count only the health that was left |
 | `absorbed` | What absorption hearts soaked up |
 | `reduced` | What armor, resistance, enchantments and shields took off |
-| `lived_ticks` | Ticks the mob was alive and loaded. For a player, ticks since their last death |
+| `lived_ticks` | Ticks the mob was alive and loaded. For a player, ticks since their last death. Since 1.2.0 left out when the server reports 0, as Paper 26.x does for a mob being removed |
 | `tracked_ms` | Milliseconds since Histoblock started following the mob |
 
 A player's totals cover one life: they start over at death.
@@ -180,6 +184,14 @@ With Epic Mobs installed, records about an Epic Mob add `epic_mob` (the definiti
 `epic_name`, `epic_tier` and `epic_boss`. The tag is stored on the mob the first time it is
 seen, so it is still there when the mob dies after Epic Mobs has let go of it. Turn it off
 with `hooks.epic-mobs: false`.
+
+### Epic Lairs
+
+Since 1.2.0, with Epic Lairs installed, spawn, damage, death and despawn records about a lair
+mob add `lair_mob` (the mob reference, such as `lair:broodmother`) and `lair_run` (the run that
+spawned it; absent for a mob spawned outside a run). A lair mob that does the hitting or killing
+adds `by_lair_mob`. Lair mobs always get a death record. Turn it off with
+`hooks.epic-lairs: false`.
 
 ---
 
@@ -424,6 +436,19 @@ Category `SYSTEM`. They only fire `HistoryRecordedEvent`.
 Subject type `SYSTEM`, key `purge`. A purge never deletes these, so the trail of who deleted
 what survives until the retention removes it. Placed marks, portal notes and item ids are
 never purged.
+
+### `BLOCKS_RESTORED`
+
+**API 4, Histoblock 1.2.0.** Written once per
+[`blocksRestored`](03-api-reference.md#blocksrestoredplugin-world-boundingbox-map-api-4) call.
+
+| Actor | Position | Details |
+| --- | --- | --- |
+| `SERVER`, named after the calling plugin, no UUID | the centre of the box | `plugin`, `from` and `to` (the corner blocks, `x,y,z`, both inside), `blocks` (the box volume), `marked` (blocks now marked as the plugin's), then every detail the plugin passed |
+
+Subject type `SYSTEM`, key `restore`. Read them back with
+`RecordQuery.builder().action(RecordAction.BLOCKS_RESTORED)`, and check `details().get("plugin")`
+to keep one plugin's.
 
 `UNKNOWN` is not written by Histoblock. It is what `RecordAction.parse` returns for an action
 newer than your API jar.

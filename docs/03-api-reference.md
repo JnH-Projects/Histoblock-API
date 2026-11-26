@@ -3,7 +3,8 @@
 [Index](README.md) | Previous: [Core concepts](02-core-concepts.md) | Next: [Events](04-events.md)
 
 Every public type, grouped by package. Methods marked **API 2** need Histoblock 0.7.0 or newer,
-and methods marked **API 3** need Histoblock 1.1.0 or newer.
+methods marked **API 3** need Histoblock 1.1.0 or newer, and methods marked **API 4** need
+Histoblock 1.2.0 or newer.
 
 ---
 
@@ -26,7 +27,7 @@ plugin on the server.
 
 | Method | Returns | Notes |
 | --- | --- | --- |
-| `version()` | `String` | the plugin version without the edition suffix, e.g. `1.1.0` |
+| `version()` | `String` | the plugin version without the edition suffix, e.g. `1.2.0` |
 | `apiVersion()` | `int` | the contract the running plugin implements; compare with `HistoblockAPI.API_VERSION`, the one you compiled against |
 | `edition()` | `Edition` | `FREE` or `PRO` |
 | `capabilities()` | `Set<Capability>` | what is on right now, unmodifiable |
@@ -132,6 +133,51 @@ See [`RemovedPlacement`](#removedplacement).
 `placement(Block)` is empty once the block is gone, so this is the way to tell a player who
 breaks their own block and places it again, over and over, from one who places a new block.
 Call on the block's thread.
+
+### `saveSpeed()` (API 4)
+
+`SaveSpeed`: the speed the server owner set with `storage.save-speed`, or the one a plugin set
+since. Tells you how long tallied records (footsteps, hopper hand-offs, paths) may take to show
+up in a query. Changes on `/hb reload`, so read it when you need it. Any thread. See
+[`SaveSpeed`](#savespeed).
+
+### `setSaveSpeed(Plugin, SaveSpeed)` (API 4)
+
+`boolean`: changes the save speed while the server runs. For a plugin that knows better than a
+fixed setting, such as a performance manager dropping to `SLOW` under load and back to
+`BALANCE` after.
+
+- The change lasts until `/hb reload` or a restart, which go back to config.yml. It is never
+  written to the file.
+- It is logged with your plugin's name, and `/hb status` shows "(set by YourPlugin)".
+- The owner can refuse every change with `api.allow-save-speed-change: false`. Then this
+  returns false, nothing changes, and the console says why.
+
+Any thread. Returns true when the speed is now the one you asked for.
+
+### `blocksRestored(Plugin, World, BoundingBox, Map)` (API 4)
+
+`int`: tells Histoblock your plugin put the blocks in this box back itself, with `setType`,
+`setBlockData` or `BlockState.update`, which fire no events. Use it after a dungeon reset, a
+schematic paste or a rollback.
+
+- Every block in the box that is not air gets a placed mark owned by your plugin:
+  [`placement(Block)`](#placementblock-api-2) then has `placer()` null and `placerName()` your
+  plugin's name, so it neither reads as natural nor as placed by the player who had a block
+  there before. Air loses its mark. No removal notes are left, since nothing was broken.
+- Lava or TNT from such a block is credited to your plugin.
+- One `BLOCKS_RESTORED` record is written at the centre of the box, by your plugin, with the
+  box, the counts and your `details` (kept as text; may be empty). See
+  [Records](05-records.md#blocks_restored).
+- The box holds the blocks from its minimum corner up to, not including, its maximum corner,
+  as `BoundingBox.of(Block, Block)` builds it for two corner blocks.
+- Chunks that are not loaded are skipped, so call it while the area is loaded.
+- At most `HistoblockAPI.MAX_RESTORE_BLOCKS` (4,000,000) blocks per call, or it throws
+  `IllegalArgumentException`. Split a bigger area.
+
+Returns how many blocks were marked. 0 with nothing written when block tracking is off; 0 with
+the record still written when the server keeps no placed marks. Call on the thread that owns
+the box: the main thread, or on Folia its region thread, with the box inside one region.
 
 ---
 
@@ -310,7 +356,8 @@ Time per world is kept on the player, not in records: see
 
 ### `Placement`
 
-From `placement(Block)`: `placer()` (null when a block or the world placed it), `placerName()`,
+From `placement(Block)`: `placer()` (null when a block, the world or, since API 4, a plugin
+through `blocksRestored` placed it), `placerName()` (the plugin's name in that last case),
 `material()` (what it was placed as, which can differ from what stands there now, such as a
 sapling that grew), `time()`.
 
@@ -327,6 +374,24 @@ The notes are kept in memory only, so a restart forgets them, and there are at m
 the whole server at once. A block moved by a piston or by gravity keeps its mark and leaves no
 note. A new block placed on the same spot does not clear the note, so a place, break, place
 loop still shows the first removal.
+
+---
+
+## `SaveSpeed`
+
+**API 4.** `me.jaymar921.histoblock.api.model.SaveSpeed`, from `saveSpeed()`.
+
+| Value | Footsteps and hoppers | Paths (Pro) | Other records |
+| --- | --- | --- | --- |
+| `FAST` | every 10 s | every 0.5 s | at once |
+| `BALANCE` | every 60 s | every 2 s | at once. The default, and how 1.1.0 and older saved |
+| `SLOW` | every 3 min | every 10 s | held up to 2 s to share a save |
+
+| Method | Returns | Notes |
+| --- | --- | --- |
+| `tallyDelay()` | `Duration` | the longest a footstep or hopper record waits with the default `flush-seconds`. The owner can change those, so it is the usual figure, not a promise |
+| `recordDelay()` | `Duration` | how long any other record may be held. Zero except on `SLOW` |
+| `SaveSpeed.parse(String)` | `Optional<SaveSpeed>` | reads `fast`, `balance` (`balanced`, `normal`) or `slow`, any case, the way Histoblock reads its config. Empty for anything else, where `valueOf` would throw |
 
 ---
 
