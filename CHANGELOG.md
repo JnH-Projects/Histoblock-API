@@ -2,6 +2,32 @@
 
 Changes to the API only. The plugin's own changelog is on its download page.
 
+## 1.2.0 (API 4)
+
+The first calls that tell Histoblock something instead of only asking. Code written for API 3
+keeps working.
+
+- `blocksRestored(Plugin, World, BoundingBox, Map)` for a plugin that put blocks back itself,
+  with `setType`, `setBlockData` or `BlockState.update`. Every non-air block in the loaded part
+  of the box is marked as placed by the plugin and air loses its mark, so a reset no longer
+  leaves the old players' marks or brings broken blocks back as natural. Writes one
+  `BLOCKS_RESTORED` record. At most `MAX_RESTORE_BLOCKS` (4,000,000) blocks a call. Asked for
+  by Epic Lairs.
+- `Placement.placer()` is null for a block a plugin restored, and `placerName()` is the plugin.
+- `saveSpeed()` returns the new `SaveSpeed` (`FAST`, `BALANCE`, `SLOW`) with `tallyDelay()` and
+  `recordDelay()`: how long footsteps, hopper hand-offs and other records may take to reach a
+  query.
+- `setSaveSpeed(Plugin, SaveSpeed)` changes it until the next `/hb reload` or restart. Logged,
+  shown in `/hb status`, and refused (returns false) when the owner sets
+  `api.allow-save-speed-change: false`.
+- `SaveSpeed.parse(String)` reads a speed from text without throwing on a typo.
+- `RecordAction.BLOCKS_RESTORED`, category `SYSTEM`.
+- `HistoblockAPI.API_VERSION` is 4.
+
+Records: entity records carry `lair_mob`, `lair_run` and `by_lair_mob` with Epic Lairs
+installed, and `lived_ticks` is left out when the server reports 0. Two new examples,
+`ArenaResetPlugin` and `CrowdSaverPlugin`.
+
 ## 1.1.0 (API 3)
 
 Three live lookups, asked for by Custom Enchantments 3. Each answers on the entity's or
