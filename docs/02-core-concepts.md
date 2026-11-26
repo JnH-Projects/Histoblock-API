@@ -70,6 +70,10 @@ stairs back to planks, logs, and the tree they were cut from.
 | **Views**: `block`, `entity`, `player`, `item`, `portal` | one view of one subject | completes on a reader thread | everything about one thing, already worked out |
 | **Live lookups**: `itemId`, `stackSources`, `placement`, `portalKey`, `timeInWorlds`, and in API 3 `killCredit`, `combat(LivingEntity)`, `removedPlacement` | a value | runs on your thread | state Histoblock keeps on the item, chunk, entity or player, not in records |
 
+In API 4 a plugin can also tell Histoblock things: `blocksRestored` says it put blocks back
+itself, and `setSaveSpeed` changes how fast history is saved. See
+[Telling Histoblock](#telling-histoblock-api-4) below.
+
 A view is a handful of indexed queries on one key, run in one go. It costs about what an
 in-game inspect costs, and it does the folding for you: the placement that is still standing,
 the combat summary of the newest life, the footstep totals.
@@ -78,6 +82,36 @@ Live lookups read what is not in the database. Placed marks and portal notes are
 chunk, item ids on the item, ledgers and world times on the player, the combat ledger on the
 entity. They are not subject to the retention and they never age out. The one exception is
 `removedPlacement`: those notes are kept in memory for 10 minutes and do not survive a restart.
+
+---
+
+## Telling Histoblock (API 4)
+
+Histoblock learns about the world from events. A plugin that changes blocks with `setType`,
+`setBlockData` or `BlockState.update` fires none, so Histoblock cannot see it: a dungeon that
+rebuilds itself after a run keeps the placed marks of whatever stood there before, and blocks a
+player broke come back looking natural. `blocksRestored(plugin, world, box, details)` fixes
+that. Every solid block in the box is marked as placed by your plugin, with no player
+(`Placement.placer()` null, `placerName()` your plugin's name), air loses its mark, and one
+`BLOCKS_RESTORED` record is written. Call it right after the rebuild, on the thread that owns
+the box.
+
+### Save speed
+
+Most records reach the database within a moment. Footsteps, hopper hand-offs and (Pro)
+movement paths are added up in memory first and written on a timer, and the server owner picks
+how often with `storage.save-speed`:
+
+| `SaveSpeed` | Footsteps and hoppers | Paths | Other records |
+| --- | --- | --- | --- |
+| `FAST` | every 10 s | every 0.5 s | at once |
+| `BALANCE` (default) | every 60 s | every 2 s | at once |
+| `SLOW` | every 3 min | every 10 s | held up to 2 s to share a save |
+
+So a query for footsteps right after someone walked by can come back empty for a while.
+`saveSpeed().tallyDelay()` says how long to allow. A plugin can change the speed for the rest
+of the run with `setSaveSpeed`, unless the owner locked it; `/hb reload` and a restart go back
+to config.yml.
 
 ---
 
@@ -122,6 +156,8 @@ to be:
 | `placement(Block)`, `removedPlacement(Block)`, `portalKey(Block)` | the block's thread: the main thread, or its region thread on Folia |
 | `killCredit(LivingEntity)`, `combat(LivingEntity)` | the entity's thread: the main thread, or its region thread on Folia |
 | `stackSources(Player, ItemStack)`, `timeInWorlds(Player)` | the player's thread: the main thread, or their region thread on Folia |
+| `blocksRestored(...)` (API 4) | the thread that owns the box: the main thread, or on Folia its region thread, with the box inside one region |
+| `saveSpeed()`, `setSaveSpeed(...)` (API 4) | any thread |
 
 A command handler or an event listener for that block or player is already on the right
 thread.
