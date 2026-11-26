@@ -37,11 +37,16 @@ the running plugin implements.
 - The same goes for API 3 (Histoblock 1.1.0): check `api.apiVersion() >= 3` before calling
   `killCredit`, `combat(LivingEntity)` or `removedPlacement`, and keep your old path for
   servers that have not updated yet.
+- And for API 4 (Histoblock 1.2.0): check `api.apiVersion() >= 4` before calling `saveSpeed`,
+  `setSaveSpeed` or `blocksRestored`. `SaveSpeed` and `BLOCKS_RESTORED` do not exist in an
+  older API jar, so keep them out of classes that load on older servers.
 
 | Plugin | `apiVersion()` | Added |
 | --- | --- | --- |
 | 0.7.0, 1.0.0 | 2 | views, live lookups, typed events |
 | 1.1.0 | 3 | `killCredit`, `combat(LivingEntity)`, `removedPlacement` |
+| 1.2.0 | 4 | `saveSpeed`, `setSaveSpeed`, `blocksRestored`, `SaveSpeed`, `BLOCKS_RESTORED` |
+
 - `RecordAction` grows. A record written by a newer plugin and read through an older API jar
   comes back as `RecordAction.UNKNOWN`. Give every `switch` on it a `default` branch.
 - Detail keys grow too. Read the keys you know and ignore the rest; never fail on an
@@ -67,6 +72,27 @@ record and queue it. Reads are where a consumer can hurt a server, so:
   snapshot; keep it as long as the answer it gave is good enough for you.
 - **Keep listeners cheap.** They run on the writer thread. Filter on `getAction()` first and
   hand anything slow to your own executor.
+
+### Restoring blocks (API 4)
+
+- **One call per rebuild, not per block.** `blocksRestored` walks the box itself and writes one
+  record. Calling it once per block writes a record per block.
+- **Call it after the blocks are back,** on the same tick and thread that put them there, while
+  the chunks are still loaded. Unloaded chunks are skipped, not loaded for you.
+- **Keep the box tight.** It costs a little per block in it, air included: about 150 blocks in a
+  millisecond on a test server. Several small boxes around what really changed beat one box
+  around a whole map. The cap is 4,000,000 blocks per call.
+
+### Changing the save speed (API 4)
+
+- **Switch on real signals, and not often.** A change restarts the hopper and path timers.
+  Moving between speeds every few seconds helps nothing.
+- **Accept a no.** `setSaveSpeed` returns false when the owner locked the speed. Log it once and
+  carry on; do not retry.
+- **Leave it as you found it.** If you only need `FAST` for a while, read `saveSpeed()` first
+  and set it back when you are done. Remember `/hb reload` resets it anyway.
+- **Read with `SaveSpeed.parse`,** not `valueOf`, when the speed comes from your own config or a
+  command, so a typo does not throw.
 
 ---
 
@@ -98,3 +124,5 @@ Lists inside a detail are comma separated, such as `SHARPNESS:3,UNBREAKING:2` or
 - [ ] listeners are thread-safe and short
 - [ ] every `switch` on `RecordAction` has a `default`
 - [ ] an empty view, a null record and a missing detail are all handled
+- [ ] if you rebuild blocks without events, you call `blocksRestored` once per rebuild
+- [ ] if you change the save speed, you handle a `false` and restore the old speed
