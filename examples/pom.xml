@@ -43,9 +43,9 @@
         <dependency>
             <groupId>me.jaymar921</groupId>
             <artifactId>histoblock-api</artifactId>
-            <version>1.2.0</version>
+            <version>1.3.0</version>
             <scope>system</scope>
-            <systemPath>${project.basedir}/../releases/1.2.0/Histoblock-api.jar</systemPath>
+            <systemPath>${project.basedir}/../releases/1.3.0/Histoblock-api.jar</systemPath>
         </dependency>
 
         <!--
