@@ -2,6 +2,31 @@
 
 Changes to the API only. The plugin's own changelog is on its download page.
 
+## 1.3.0 (API 5)
+
+Restores and snapshots. Code written for API 4 keeps working, and every API 5 method has a
+default body, so a test double of `HistoblockAPI` written for API 4 still compiles. On a
+Histoblock older than 1.3.0 those defaults answer as if nothing were on record, and `restore`
+fails with `UnsupportedOperationException`: check `apiVersion() >= 5`.
+
+- `restore(Plugin, Position, int, Instant, UUID)`: puts an area back as it was, blocks and
+  container contents, the same as `/hb restore`. Optionally only one player's changes, leaving
+  blocks someone else changed later alone. Returns a `RestoreResult`: blocks, containers,
+  conflicts, skipped blocks, and who took items out of the restored containers.
+- `container(Position, Instant)` and `containerHistory(Position, Instant, int)` return
+  `ContainerSnapshot`s: what a chest, trapped chest, barrel or shulker box held.
+- `inventories(UUID, Instant, int)` and `lastInventory(UUID)` return `InventorySnapshot`s:
+  inventory, armor, offhand and ender chest.
+- `RecordAction.PLAYER_CHATTED` and `PLAYER_COMMAND` (category `PLAYER`), and
+  `ITEM_DUPLICATE_SUSPECTED` (category `ITEM`, Pro). No new `Category`.
+- `Capability.BLOCK_RESTORE`, `CONTAINER_HISTORY`, `CHAT_HISTORY`, and for Pro
+  `INVENTORY_HISTORY` and `DUPE_ALERTS`.
+- `BLOCKS_RESTORED` is also written by Histoblock's own restores, with `cause` and `restore`.
+- `HistoblockAPI.API_VERSION` is 5.
+
+Records: `BLOCK_PLACED` carries `replaced_state`, and blocks a restore changed carry
+`cause: RESTORE`. Two new examples, `ChestWitnessPlugin` and `GriefUndoPlugin`.
+
 ## 1.2.0 (API 4)
 
 The first calls that tell Histoblock something instead of only asking. Code written for API 3

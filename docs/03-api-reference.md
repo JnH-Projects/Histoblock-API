@@ -3,8 +3,12 @@
 [Index](README.md) | Previous: [Core concepts](02-core-concepts.md) | Next: [Events](04-events.md)
 
 Every public type, grouped by package. Methods marked **API 2** need Histoblock 0.7.0 or newer,
-methods marked **API 3** need Histoblock 1.1.0 or newer, and methods marked **API 4** need
-Histoblock 1.2.0 or newer.
+methods marked **API 3** need Histoblock 1.1.0 or newer, methods marked **API 4** need
+Histoblock 1.2.0 or newer, and methods marked **API 5** need Histoblock 1.3.0 or newer.
+
+API 5 methods have default bodies, so they never throw `AbstractMethodError`. On an older
+Histoblock they answer as if nothing were on record (and `restore` fails with
+`UnsupportedOperationException`), so check `apiVersion() >= 5` to tell the two apart.
 
 ---
 
@@ -27,7 +31,7 @@ plugin on the server.
 
 | Method | Returns | Notes |
 | --- | --- | --- |
-| `version()` | `String` | the plugin version without the edition suffix, e.g. `1.2.0` |
+| `version()` | `String` | the plugin version without the edition suffix, e.g. `1.3.0` |
 | `apiVersion()` | `int` | the contract the running plugin implements; compare with `HistoblockAPI.API_VERSION`, the one you compiled against |
 | `edition()` | `Edition` | `FREE` or `PRO` |
 | `capabilities()` | `Set<Capability>` | what is on right now, unmodifiable |
@@ -178,6 +182,54 @@ schematic paste or a rollback.
 Returns how many blocks were marked. 0 with nothing written when block tracking is off; 0 with
 the record still written when the server keeps no placed marks. Call on the thread that owns
 the box: the main thread, or on Folia its region thread, with the box inside one region.
+
+### `restore(Plugin, Position, int, Instant, UUID)` (API 5)
+
+`CompletableFuture<RestoreResult>`: puts the blocks within `radius` of `center` back as they
+were at `since`, and what the chests, trapped chests, barrels and shulker boxes there held,
+the same as `/hb restore`. Where `blocksRestored` is you telling Histoblock about your own
+rebuild, this asks Histoblock to do the rebuild from its history.
+
+- With a player's UUID as the last argument, only what that player changed is undone, and a
+  block someone else changed after that player's last change is left alone (counted in
+  `conflicts()`). Null undoes everyone's changes.
+- Blocks are set without physics, chunk by chunk on the thread that owns each chunk, a few
+  thousand per tick. Doors, tall plants and beds are set as a pair. Placed marks go back to what
+  the records say.
+- Each change is a block record by your plugin with `cause` `RESTORE` and `restore` the id,
+  and one `BLOCKS_RESTORED` record with `cause` `API` sums it up.
+- A container goes back to its latest snapshot before `since`. Nothing is taken back from
+  players who took items out; `takenOut()` names them.
+- One restore runs at a time on the server.
+
+Any thread. The future completes off the server thread once every block is set. It fails with
+`IllegalArgumentException` when `radius` is above the server's `restore.max-radius` (64 by
+default), and with `IllegalStateException` when block tracking is off, another restore is
+running, or the area holds more than `restore.max-records` block records since then.
+
+### `container(Position, Instant)` (API 5)
+
+`CompletableFuture<Optional<ContainerSnapshot>>`: what a chest, trapped chest, barrel or
+shulker box held at a moment, from the latest snapshot at or before then. Empty for a
+container nobody opened, closed, broke or fed with hoppers before then, and when
+`CONTAINER_HISTORY` is off. See [`ContainerSnapshot`](#containersnapshot).
+
+### `containerHistory(Position, Instant, int)` (API 5)
+
+`CompletableFuture<List<ContainerSnapshot>>`: every snapshot of one container since a time,
+newest first, at most `limit` (capped at 500).
+
+### `inventories(UUID, Instant, int)` (API 5)
+
+`CompletableFuture<List<InventorySnapshot>>`: a player's inventory snapshots since a time,
+newest first, at most `limit` (capped at 500). The Free edition keeps one per quit; Pro also
+keeps them on join, death, world change and on a timer (`INVENTORY_HISTORY`).
+
+### `lastInventory(UUID)` (API 5)
+
+`CompletableFuture<Optional<InventorySnapshot>>`: the latest snapshot of a player. For an
+offline player that is what they had when they left. For an online player read the
+inventory directly.
 
 ---
 
@@ -375,6 +427,45 @@ the whole server at once. A block moved by a piston or by gravity keeps its mark
 note. A new block placed on the same spot does not clear the note, so a place, break, place
 loop still shows the first removal.
 
+### `ContainerSnapshot`
+
+**API 5.** From `container` and `containerHistory`.
+
+| Method | Returns | Notes |
+| --- | --- | --- |
+| `time()` | `Instant` | when it was taken |
+| `position()` | `Position` | the block. A double chest is two snapshots, one per half |
+| `material()` | `String` | `CHEST`, `TRAPPED_CHEST`, `BARREL`, `PURPLE_SHULKER_BOX`, ... |
+| `actor()` | `Actor` | who opened, closed or broke it, `HOPPER` (a block actor), or whoever ran a restore |
+| `cause()` | `String` | `OPENED` (first open since a restart), `CLOSED` (changed), `BROKEN` (broken or blown up, before it spilled), `PLACED` (a shulker box), `HOPPER`, `RESTORED` |
+| `contents()` | `Map<Integer, ItemStack>` | items by slot, empty slots left out; fresh copies on each call |
+| `itemCount()` | `int` | all stacks added up |
+
+### `InventorySnapshot`
+
+**API 5.** From `inventories` and `lastInventory`.
+
+| Method | Returns | Notes |
+| --- | --- | --- |
+| `time()`, `player()`, `name()` | `Instant`, `UUID`, `String` | the name as it was then |
+| `position()` | `Position` or null | where they stood |
+| `cause()` | `String` | `QUIT`, `JOIN`, `DEATH`, `WORLD`, `TIMER`, `ADMIN` |
+| `inventory()` | `Map<Integer, ItemStack>` | by `PlayerInventory` slot: 0 to 8 hotbar, 9 to 35 the rest, 36 to 39 boots to helmet, 40 offhand |
+| `enderChest()` | `Map<Integer, ItemStack>` | by slot |
+
+### `RestoreResult`
+
+**API 5.** From `restore`.
+
+| Method | Returns | Notes |
+| --- | --- | --- |
+| `id()` | `String` | the `restore` detail on the records it wrote |
+| `blocks()` | `int` | blocks set back |
+| `containers()` | `int` | containers filled back |
+| `conflicts()` | `int` | blocks left alone because someone else changed them later (only with a player) |
+| `unloaded()` | `int` | blocks skipped: outside the world height, or a block this server version does not have |
+| `takenOut()` | `Map<String, Integer>` | players who took items out of the restored containers since then, with how many. Those items now exist twice |
+
 ---
 
 ## `SaveSpeed`
@@ -402,6 +493,6 @@ loop still shows the first removal.
 | `Category` | `BLOCK`, `ENTITY`, `PLAYER`, `ITEM`, `DIMENSION`, `WORLD`, `SYSTEM` |
 | `SubjectType` | `BLOCK`, `ENTITY`, `PLAYER`, `ITEM`, `PORTAL`, `WORLD`, `SYSTEM` |
 | `ActorType` | `PLAYER`, `ENTITY`, `BLOCK`, `WORLD`, `SERVER`, `UNKNOWN` |
-| `Capability` | `BLOCK_TRACKING`, `ENTITY_TRACKING`, `PLAYER_TRACKING`, `ITEM_TRACKING`, `DIMENSION_TRACKING`, `MOVEMENT_PATHS`, `PLAYBACK` |
+| `Capability` | `BLOCK_TRACKING`, `ENTITY_TRACKING`, `PLAYER_TRACKING`, `ITEM_TRACKING`, `DIMENSION_TRACKING`, `MOVEMENT_PATHS` (Pro), `PLAYBACK` (Pro); since API 5 `BLOCK_RESTORE`, `CONTAINER_HISTORY`, `CHAT_HISTORY`, `INVENTORY_HISTORY` (Pro), `DUPE_ALERTS` (Pro) |
 | `Edition` | `FREE`, `PRO` |
 | `RecordAction` | see [Records reference](05-records.md). `RecordAction.parse(String)` never throws |

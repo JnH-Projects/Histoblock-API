@@ -72,7 +72,9 @@ stairs back to planks, logs, and the tree they were cut from.
 
 In API 4 a plugin can also tell Histoblock things: `blocksRestored` says it put blocks back
 itself, and `setSaveSpeed` changes how fast history is saved. See
-[Telling Histoblock](#telling-histoblock-api-4) below.
+[Telling Histoblock](#telling-histoblock-api-4) below. In API 5 it can ask Histoblock to
+restore an area, and read what containers and players held; see
+[Restores and snapshots](#restores-and-snapshots-api-5).
 
 A view is a handful of indexed queries on one key, run in one go. It costs about what an
 in-game inspect costs, and it does the folding for you: the placement that is still standing,
@@ -112,6 +114,29 @@ So a query for footsteps right after someone walked by can come back empty for a
 `saveSpeed().tallyDelay()` says how long to allow. A plugin can change the speed for the rest
 of the run with `setSaveSpeed`, unless the owner locked it; `/hb reload` and a restart go back
 to config.yml.
+
+---
+
+## Restores and snapshots (API 5)
+
+Since 1.3.0 Histoblock can do a rebuild itself. `restore(plugin, center, radius, since,
+onlyActor)` puts an area back as it was, from the block records, the same as `/hb restore`:
+for every block that changed since then, what it was before its first change, or with a
+player, before that player's first change and only where nobody else changed it after. Every
+change is recorded like a normal placement or break, so a later read of the history, a
+playback or another restore sees it.
+
+Two kinds of snapshots back it up, kept in their own tables and aged out with the records:
+
+- **Containers.** What a chest, trapped chest, barrel or shulker box held, taken when a player
+  closes it changed, opens it for the first time since a restart, breaks it, when a shulker box
+  is placed, and while hoppers feed it. `container(position, at)` reads it back.
+- **Inventories.** What a player carried, ender chest included: on quit in both editions, and
+  on join, death, world change and a timer in Pro. `inventories(uuid, since, limit)` and
+  `lastInventory(uuid)` read them.
+
+Snapshot contents are real `ItemStack`s, rebuilt off the server thread. They are copies; give
+them to a player or put them in a chest on the right thread.
 
 ---
 
@@ -158,6 +183,8 @@ to be:
 | `stackSources(Player, ItemStack)`, `timeInWorlds(Player)` | the player's thread: the main thread, or their region thread on Folia |
 | `blocksRestored(...)` (API 4) | the thread that owns the box: the main thread, or on Folia its region thread, with the box inside one region |
 | `saveSpeed()`, `setSaveSpeed(...)` (API 4) | any thread |
+| `restore(...)` (API 5) | any thread; it completes off the server thread once every block is set |
+| `container`, `containerHistory`, `inventories`, `lastInventory` (API 5) | any thread; like queries, they complete on a reader thread |
 
 A command handler or an event listener for that block or player is already on the right
 thread.
@@ -173,8 +200,8 @@ lookup and event works the same in both, from the same API jar. `edition()` says
 running.
 
 `capabilities()` says what is on right now. A capability is missing when the server owner
-turned its tracker off in config.yml, or, for `MOVEMENT_PATHS` and `PLAYBACK`, on the Free
-edition. A view for a category whose tracker is off still answers from older records, but
+turned its tracker off in config.yml, or, for `MOVEMENT_PATHS`, `PLAYBACK`,
+`INVENTORY_HISTORY` and `DUPE_ALERTS`, on the Free edition. A view for a category whose tracker is off still answers from older records, but
 nothing new is coming in.
 
 ```java

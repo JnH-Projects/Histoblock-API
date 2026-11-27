@@ -222,6 +222,10 @@ Player deaths, damage and riding are entity records; see [Entity records](#entit
 | `PLAYER_RESPAWNED` | The respawn point | `bed`, `anchor` |
 | `PLAYER_LEVEL_CHANGED` | The player | `from`, `to` |
 | `PLAYER_VITALS` | The player | `health`, `max_health`, `food`, `saturation`, `level`, `air` (only when running out), `effects` (`REGENERATION:2,SPEED:1`) |
+| `PLAYER_CHATTED` | Where they stood | **API 5.** `message`, as typed, up to 256 characters. Not written for cancelled messages (a muted player, an answer to a Histoblock prompt). Owner switch `tracking.player.chat`, on by default; see `CHAT_HISTORY` |
+| `PLAYER_COMMAND` | Where they stood | **API 5.** `command`, as typed with the slash, up to 256 characters. Off by default (`tracking.player.commands.enabled`); commands in `commands.ignore` (login, register, ...) are never written |
+
+Chat arrives off the server thread, so the position of a chat record can be a tick old.
 
 ### Effects
 
@@ -277,8 +281,13 @@ All detail values are strings. A key that does not apply is left out.
 | `ITEM_TRANSFERRED` | The container | `direction` (`IN`, `OUT`, `HOPPER`), `container`, `amount`, `lots`, `unknown`. Hopper: `from`, `from_type`, `to`, `to_type`; the actor is `BLOCK:HOPPER` |
 | `ITEM_CONSUMED` | The player | `cause` (`BROKE` from wear, `CONSUMED` eaten or drunk). Status `REMOVED` |
 | `ITEM_DESTROYED` | Where it was | `cause` (`DESPAWN`, `LAVA`, `FIRE`, `CONTACT`, `BLOCK_EXPLOSION`, `ENTITY_EXPLOSION`, `LIGHTNING`, `VOID`, ...), `amount`, `dropped_by`, `lots`. Actor is the world, status `REMOVED` |
+| `ITEM_DUPLICATE_SUSPECTED` | Where the holder stood | **API 5, Pro.** `level`: `CERTAIN` (two items with the same id at once, in one inventory or with two players) or `SUSPICIOUS` (a stackable gain beyond what the player's ledger explains), `amount`, `other_holder` (the second player of a certain one). The actor is the player it was found on. Subject key: the item id, or `unexplained:<MATERIAL>` for a stackable |
 
-`BLOCK_PLACED` records carry `lot` too: the id or lot the placed block was taken from.
+`BLOCK_PLACED` records carry `lot` too: the id or lot the placed block was taken from. Since
+1.3.0 they also carry `replaced_state`, the properties of the block they replaced.
+
+A suspicious gain is a lead, not proof: villager trades, `/give`, kits and shop plugins are not
+sources Histoblock records, so they count as unexplained. A certain one is a duplication.
 
 #### Linking keys
 
@@ -449,6 +458,18 @@ never purged.
 Subject type `SYSTEM`, key `restore`. Read them back with
 `RecordQuery.builder().action(RecordAction.BLOCKS_RESTORED)`, and check `details().get("plugin")`
 to keep one plugin's.
+
+Since 1.3.0, `/hb restore` and the API's [`restore`](03-api-reference.md#restoreplugin-position-int-instant-uuid-api-5)
+write one too, by whoever ran it (a player, the console as `SERVER`, or your plugin), at the
+centre of the restored cube:
+
+| Details |
+| --- |
+| `cause` (`COMMAND`, `API`, `UNDO`), `plugin` (the calling plugin, for `API` only), `restore` (the id), `radius`, `since_ms` (the time it went back to), `only_player`, `blocks`, `containers`, `conflicts`, `skipped`, `taken_out` (`{Steve=32, Alex=5}`) |
+
+These always carry `restore` and `cause`; a `blocksRestored` record only has them if the calling plugin passed them. Every block such a restore changed gets a `BLOCK_PLACED` or
+`BLOCK_BROKEN` record of its own by the same actor, with `cause` `RESTORE` and the same
+`restore` id, so history read after a restore is still true.
 
 `UNKNOWN` is not written by Histoblock. It is what `RecordAction.parse` returns for an action
 newer than your API jar.
