@@ -12,7 +12,7 @@ From an empty plugin to a working lookup.
 | --- | --- |
 | Java | 16 or newer |
 | Server | Spigot, Paper or Folia, 1.16.5 or newer |
-| Runtime | Histoblock 0.7.0 or newer installed on the server; 1.1.0 or newer for API 3, 1.2.0 or newer for API 4 |
+| Runtime | Histoblock 0.7.0 or newer installed on the server; 1.1.0 or newer for API 3, 1.2.0 or newer for API 4, 1.3.0 or newer for API 5 |
 
 You do **not** need the plugin jar to compile. You compile against `Histoblock-api.jar`,
 which holds interfaces, value classes and events only. It is the same jar for the Free and
@@ -22,7 +22,7 @@ Pro editions.
 
 ## Step 1: add the dependency
 
-Download [`Histoblock-api.jar`](../releases/1.2.0/Histoblock-api.jar), then pick one of the
+Download [`Histoblock-api.jar`](../releases/1.3.0/Histoblock-api.jar), then pick one of the
 three ways below.
 
 ### Maven (install to your local repository)
@@ -32,7 +32,7 @@ mvn install:install-file \
   -Dfile=Histoblock-api.jar \
   -DgroupId=me.jaymar921 \
   -DartifactId=histoblock-api \
-  -Dversion=1.2.0 \
+  -Dversion=1.3.0 \
   -Dpackaging=jar
 ```
 
@@ -40,7 +40,7 @@ mvn install:install-file \
 <dependency>
     <groupId>me.jaymar921</groupId>
     <artifactId>histoblock-api</artifactId>
-    <version>1.2.0</version>
+    <version>1.3.0</version>
     <scope>provided</scope>
 </dependency>
 ```
@@ -51,7 +51,7 @@ mvn install:install-file \
 <dependency>
     <groupId>me.jaymar921</groupId>
     <artifactId>histoblock-api</artifactId>
-    <version>1.2.0</version>
+    <version>1.3.0</version>
     <scope>system</scope>
     <systemPath>${project.basedir}/libs/Histoblock-api.jar</systemPath>
 </dependency>
@@ -178,6 +178,7 @@ listener for a typed event; those classes do not exist in older builds.
 | `AbstractMethodError` on a view method | The server runs Histoblock older than 0.7.0. Check `apiVersion() >= 2` |
 | `AbstractMethodError` on `killCredit`, `combat` or `removedPlacement` | The server runs Histoblock older than 1.1.0. Check `apiVersion() >= 3` |
 | `AbstractMethodError` on `saveSpeed`, `setSaveSpeed` or `blocksRestored` | The server runs Histoblock older than 1.2.0. Check `apiVersion() >= 4` |
+| `restore` fails with `UnsupportedOperationException`, or `container`, `inventories` and `lastInventory` are always empty | The server runs Histoblock older than 1.3.0, where those calls fall back to their default answers. Check `apiVersion() >= 5` |
 | `ClassCastException` between two `HistoblockAPI` types | The API jar is shaded into your plugin. Use `provided` scope |
 | A view says `isKnown()` false for something that surely happened | It is older than the retention, its tracker is off, or it happened before Histoblock was installed. See [Retention](02-core-concepts.md#retention) |
 | A listener never fires | `api.fire-record-events` is off in Histoblock's config.yml, or the tracker for that category is off. Check `api.capabilities()` |
